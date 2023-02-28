@@ -31,15 +31,10 @@ WITH
 );
 GO
 
--- To create a place to store the Contoso data in your database, create a schema.
+-- To crreate a schema.
 
 CREATE SCHEMA [asb];
 GO
-
-
--- Now let's create the external tables. All we are doing here is defining column names and data types, 
--- and binding them to the location and format of the Azure Blob Storage files. The location is the folder 
--- under the root directory of the Azure Storage Blob.
 
 --DimAccount
 CREATE EXTERNAL TABLE [asb].DimAccount 
@@ -855,17 +850,7 @@ ALTER INDEX ALL ON [cso].[FactExchangeRate]         REBUILD;
 
 
 -- Optimize statistics
--- It is best to create single-column statistics immediately after a load. There are some choices for statistics. -- For example, if you create single-column statistics on every column it might take a long time to rebuild 
--- statistics. If you know certain columns are not going to be in query predicates, you could skip creating
--- statistics on those columns.
---
--- If you decide to create single-column statistics on every column, you can use stored procedure code 
--- sample `prc_sqldw_create_stats` in the [statistics][] article.
---
--- This example is a good starting point for creating statistics. It creates single-column statistics on each 
--- column in the dimension table, and on each joining column in the fact tables. You can always add single or 
--- multi-column statistics to other fact table columns later on.
---
+
 
 CREATE STATISTICS [stat_cso_DimMachine_DecommissionDate] ON [cso].[DimMachine]([DecommissionDate]);
 CREATE STATISTICS [stat_cso_DimMachine_ETLLoadID] ON [cso].[DimMachine]([ETLLoadID]);
@@ -1182,11 +1167,6 @@ CREATE STATISTICS [stat_cso_FactOnlineSales_ProductKey] ON [cso].[FactOnlineSale
 CREATE STATISTICS [stat_cso_FactOnlineSales_PromotionKey] ON [cso].[FactOnlineSales]([PromotionKey]);
 CREATE STATISTICS [stat_cso_FactOnlineSales_StoreKey] ON [cso].[FactOnlineSales]([StoreKey]);
 
--- Achievement unlocked!
---
--- You now have all the public data loaded into Azure SQL Data Warehouse. Great job!
---
---You can now start querying the tables using queries like this. :
 
 SELECT  SUM(f.[SalesAmount]) AS [sales_by_brand_amount]
 ,       p.[BrandName]
