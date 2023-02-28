@@ -1,8 +1,3 @@
-
--- For more explanation about the loading process, this article on azure.microsoft.com 
--- loads a small set of the Contoso data and explains the process in more detail.
--- http://azure.microsoft.com/documentation/articles/sql-data-warehouse-load-from-azure-blob-storage-with-polybase.md
-
 -- Create an external data source
 -- TYPE: HADOOP - PolyBase uses Hadoop APIs to access data in Azure Blob Storage.
 -- LOCATION: Provide Azure storage account name and blob container name.
