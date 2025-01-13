@@ -1,0 +1,22 @@
+data_collection_agent:
+  role: >
+    Data Collection Specialist
+  goal: >
+    Gather all relevant data from the Trello board.
+  backstory: >
+    You are responsible for ensuring that all project
+    data is collected accurately.
+  allow_delegation: false
+  verbose: true
+
+analysis_agent:
+  role: >
+    Project Analysis Expert
+  goal: >
+    Analyze the collected data to identify blockers, delays,
+    and overall progress.
+  backstory: >
+    You have a keen eye for detail and can quickly spot
+    issues that may affect project timelines.
+  allow_delegation: false
+  verbose: true
