@@ -1,0 +1,44 @@
+import os
+from langchain.embeddings import OpenAIEmbeddings
+from langchain.vectorstores import FAISS
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.llms import OpenAI
+from langchain.chains import RetrievalQA
+from langchain.document_loaders import TextLoader
+
+# Setup OpenAI API Key
+os.environ["OPENAI_API_KEY"] = "YOUR_OPENAI_API_KEY" # Replace with your actual API key
+
+# 1. Data Ingestion and Preparation
+loader = TextLoader("sample_document.txt")  # Load your document
+documents = loader.load()
+
+text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
+texts = text_splitter.split_documents(documents)
+
+# 2. Embedding Generation
+embeddings = OpenAIEmbeddings()
+db = FAISS.from_documents(texts, embeddings)
+
+# 3. Retrieval
+retriever = db.as_retriever()
+
+# 4. Generation
+llm = OpenAI()
+qa = RetrievalQA.from_chain_type(llm=llm, chain_type="stuff", retriever=retriever)
+
+# Example Query
+query = "What is the main topic of this document?"
+result = qa.run(query)
+print(result)
+
+# Another Example Query
+query = "Give me a summary of the document."
+result = qa.run(query)
+print(result)
+
+#sample_document.txt example:
+#This document describes the history of AI. Artificial intelligence began in the 1950s.
+#Early AI research focused on symbolic reasoning and problem solving.
+#In the 21st century, deep learning emerged as a dominant technique.
+#AI is now used in various applications, including natural language processing and image recognition.
