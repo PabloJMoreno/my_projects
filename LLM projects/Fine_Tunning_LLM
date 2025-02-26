@@ -1,0 +1,110 @@
+# pip install transformers datasets torch pypdf 
+
+import os
+import torch
+from transformers import AutoTokenizer, AutoModelForCausalLM, TrainingArguments, Trainer
+from datasets import Dataset, DatasetDict
+import pypdf
+import re
+
+"""
+Text Cleaning: Added basic text cleaning to remove excessive whitespace and newlines, improving tokenization.
+Padding Token: Explicitly adds a padding token if it's missing, which is crucial for batching.
+""" 
+
+# 1. Load and preprocess PDF documents
+def extract_text_from_pdf(pdf_path):
+    text = ""
+    try:
+        with open(pdf_path, 'rb') as file:
+            reader = pypdf.PdfReader(file)
+            for page in reader.pages:
+                text += page.extract_text() or ""  # Handle potential None returns
+        # Basic cleaning (remove excessive whitespace, newlines)
+        text = re.sub(r'\s+', ' ', text).strip()
+    except Exception as e:
+        print(f"Error processing {pdf_path}: {e}")
+    return text
+
+def load_and_preprocess_pdfs(pdf_folder):
+    pdf_texts = []
+    for filename in os.listdir(pdf_folder):
+        if filename.endswith(".pdf"):
+            pdf_path = os.path.join(pdf_folder, filename)
+            text = extract_text_from_pdf(pdf_path)
+            if text:
+                pdf_texts.append(text)
+    return pdf_texts
+
+pdf_folder = "your_pdf_folder" # Replace with your folder path
+pdf_texts = load_and_preprocess_pdfs(pdf_folder)
+
+# 2. Tokenize and prepare the dataset
+model_name = "distilgpt2" # or "gpt2", "facebook/opt-125m", etc.
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+if tokenizer.pad_token is None:
+    tokenizer.pad_token = tokenizer.eos_token # Add padding token if needed.
+
+def tokenize_function(examples):
+    return tokenizer(examples["text"], truncation=True, padding="max_length", max_length=512)
+
+dataset = Dataset.from_dict({"text": pdf_texts})
+tokenized_datasets = dataset.map(tokenize_function, batched=True)
+
+# Split into train and test sets (optional, but recommended)
+if len(tokenized_datasets) > 1:
+    split_dataset = tokenized_datasets.train_test_split(test_size=0.2)
+else:
+    split_dataset = DatasetDict({"train": tokenized_datasets}) #if only one document make it the train set.
+
+# 3. Load the model and configure training
+model = AutoModelForCausalLM.from_pretrained(model_name)
+model.resize_token_embeddings(len(tokenizer)) #important when adding pad token.
+
+"""
+Model Resizing: model.resize_token_embeddings(len(tokenizer)) is essential when adding a new padding token.
+"""
+
+training_args = TrainingArguments(
+    output_dir="./results",
+    overwrite_output_dir=True,
+    num_train_epochs=3, # Adjust as needed
+    per_device_train_batch_size=4, # Adjust as needed
+    save_steps=10_000,
+    save_total_limit=2,
+    logging_dir='./logs',
+    logging_steps=10,
+    learning_rate=2e-5,
+    weight_decay=0.01,
+    warmup_steps=500,
+    fp16=torch.cuda.is_available(), # Use mixed precision if GPU is available
+    push_to_hub=False, # Set to True if you want to push to Hugging Face Hub
+)
+
+trainer = Trainer(
+    model=model,
+    args=training_args,
+    train_dataset=split_dataset["train"],
+    #eval_dataset=split_dataset["test"] if "test" in split_dataset else None, #add evaluation if you have a test set.
+    data_collator=lambda data: {'input_ids': torch.stack([f['input_ids'] for f in data]),
+                               'attention_mask': torch.stack([f['attention_mask'] for f in data]),
+                               'labels': torch.stack([f['input_ids'] for f in data])} #labels are the input_ids for causal language modeling
+)
+
+# 4. Train the model
+trainer.train()
+
+# 5. Save the fine-tuned model
+model.save_pretrained("./fine_tuned_model")
+tokenizer.save_pretrained("./fine_tuned_model")
+
+#Example of using the fine tuned model.
+loaded_tokenizer = AutoTokenizer.from_pretrained("./fine_tuned_model")
+loaded_model = AutoModelForCausalLM.from_pretrained("./fine_tuned_model")
+
+input_text = "Summarize the key points:" #example prompt.
+input_ids = loaded_tokenizer.encode(input_text, return_tensors='pt')
+
+output = loaded_model.generate(input_ids, max_length=200, num_return_sequences=1, no_repeat_ngram_size=2)
+generated_text = loaded_tokenizer.decode(output[0], skip_special_tokens=True)
+print(generated_text)
